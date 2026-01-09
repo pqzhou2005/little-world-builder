@@ -1,0 +1,10 @@
+{
+  "name": "NewProject_2",
+  "uuid": "510655f1-8fe8-4fd2-9aa1-defa7821e337",
+  "creator": {
+    "version": "3.8.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
