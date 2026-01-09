@@ -1,0 +1,17 @@
+# Cocos Creator
+library/
+temp/
+build/
+local/
+profiles/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
