@@ -1,9 +1,10 @@
-import { _decorator, Component, Node, Label, Button, Prefab, instantiate, director, UITransform, Sprite, Mask, find } from 'cc';
+import { _decorator, Component, Node, Label, Button, Prefab, instantiate, director, UITransform, Sprite, Mask, Vec3, tween, Tween, find } from 'cc';
 import { GameCore } from '../core/GameCore';
 import { chapterTemplates, ELEMENT_ICONS, ELEMENT_ASSETS } from '../data/chapterTemplates';
 import { GameLaunchParams, LaunchMode } from '../core/GameLaunchParams';
 import { ElementButton } from './ElementButton';
 import { UIDebug } from './UIDebug';
+import { MagicCircle } from './Circle';
 
 const { ccclass, property } = _decorator;
 
@@ -15,6 +16,17 @@ export class QuickPlayController extends Component {
   @property(Prefab)
   elementButtonPrefab: Prefab | null = null;
 
+  @property(Node)
+  flyingLayer: Node | null = null;
+
+  @property(Node)
+  slotATarget: Node | null = null;
+
+  @property(Node)
+  slotBTarget: Node | null = null;
+
+  @property(Node)
+  circle: Node | null = null;
 
   @property(Label)
   goalLabel: Label | null = null;
@@ -31,9 +43,14 @@ export class QuickPlayController extends Component {
   @property(Button)
   popupCloseBtn: Button | null = null;
 
+  private fusionLocked = false;
+  private slotNodeA: Node | null = null;
+  private slotNodeB: Node | null = null;
+  private magicCircle: MagicCircle | null = null;
   private core!: GameCore;
   private slotA: string | null = null;
   private slotB: string | null = null;
+  private activeCombineTweens: Tween<any>[] = [];
 
   onLoad() {
     this.logUIState('ON_LOAD');
@@ -42,16 +59,18 @@ export class QuickPlayController extends Component {
   start() {
     if (
       !this.buttonsRoot ||
-      !this.elementButtonPrefab 
+      !this.elementButtonPrefab
     ) {
       console.warn('QuickPlayController: missing required refs');
       return;
     }
 
+    if (this.circle) {
+      this.magicCircle = this.circle.getComponent(MagicCircle);
+    }
+
     this.logUIState('START');
 
-
-    // popup close
     if (this.popup && this.popupCloseBtn) {
       this.popup.active = false;
       this.popupCloseBtn.node.on(Button.EventType.CLICK, () => {
@@ -60,19 +79,19 @@ export class QuickPlayController extends Component {
     }
 
     (globalThis as any).showChapterCompleteScreen = (chapterId: string) => {
-      this.showPopup('🎉 章节完成', `完成章节：${chapterId}\n太棒啦～`);
+      this.showPopup('?? 章节完成', `完成章节：${chapterId}\n太棒啦～`);
     };
 
     console.log(
-  '[QuickPlay] chapterId =',
-  GameLaunchParams.chapterId,
-  'template =',
-  chapterTemplates[GameLaunchParams.chapterId]
-);
+      '[QuickPlay] chapterId =',
+      GameLaunchParams.chapterId,
+      'template =',
+      chapterTemplates[GameLaunchParams.chapterId]
+    );
 
     this.core = new GameCore(
-    chapterTemplates[GameLaunchParams.chapterId],
-        GameLaunchParams.chapterId
+      chapterTemplates[GameLaunchParams.chapterId],
+      GameLaunchParams.chapterId
     );
 
     switch (GameLaunchParams.mode) {
@@ -86,22 +105,20 @@ export class QuickPlayController extends Component {
 
       case LaunchMode.NewGame:
       default:
-        // 什么都不做
         break;
     }
+
     this.refreshGoal();
     this.refreshButtons();
     this.logUIState('AFTER_NEW_GAME');
     this.scheduleOnce(() => this.logUIState('AFTER_FRAME_1'), 0);
     this.scheduleOnce(() => this.logUIState('AFTER_FRAME_2'), 0.033);
-    this.refreshSlots();
 
     console.log(
       '[QuickPlay] launch',
       LaunchMode[GameLaunchParams.mode],
       GameLaunchParams.chapterId
     );
-
   }
 
   private refreshGoal() {
@@ -110,14 +127,9 @@ export class QuickPlayController extends Component {
     }
   }
 
-  private refreshSlots() {
-    
-  }
-
   private refreshButtons() {
     if (!this.buttonsRoot || !this.elementButtonPrefab) return;
 
-    // 清空旧按钮
     this.buttonsRoot.removeAllChildren();
 
     for (const name of this.core.ownedOrder) {
@@ -134,7 +146,6 @@ export class QuickPlayController extends Component {
         if (label) label.string = this.getButtonLabel(name);
       }
 
-      // 绑定点击（只绑 HitArea）
       const hitArea = node.getChildByName('HitArea');
       if (!hitArea) {
         console.warn('[ElementButton] missing HitArea');
@@ -143,36 +154,96 @@ export class QuickPlayController extends Component {
 
       const btn = hitArea.getComponent(Button);
       if (btn) {
-        btn.node.on(Button.EventType.CLICK, () => this.onPick(name), this);
+        btn.node.on(Button.EventType.CLICK, () => this.onPick(name, hitArea), this);
       } else {
-        hitArea.on(Node.EventType.TOUCH_END, () => this.onPick(name), this);
+        hitArea.on(Node.EventType.TOUCH_END, () => this.onPick(name, hitArea), this);
       }
     }
   }
 
+  private async flyElementToSlot(name: string, targetNode: Node | null, source?: Node): Promise<Node> {
+    if (!this.elementButtonPrefab || !this.flyingLayer) {
+      throw new Error('flyElementToSlot missing refs');
+    }
+    const clone = instantiate(this.elementButtonPrefab);
+    clone.setParent(this.flyingLayer);
+    clone.setScale(1, 1, 1);
 
-  private onPick(name: string) {
+    const meta = ELEMENT_ASSETS[name];
+    const slug = meta?.slug ?? 'panel';
+    clone.getComponent(ElementButton)?.setup(name, slug);
+
+    const reference = source?.parent ?? source ?? this.buttonsRoot ?? this.flyingLayer;
+    const startWorld = reference?.getWorldPosition(new Vec3()) ?? new Vec3();
+    clone.setWorldPosition(startWorld);
+
+    const targetWorld = (targetNode ?? reference)?.getWorldPosition(new Vec3()) ?? startWorld;
+    const flyingTransform = this.flyingLayer.getComponent(UITransform);
+    const localTarget = flyingTransform
+      ? flyingTransform.convertToNodeSpaceAR(targetWorld)
+      : targetWorld;
+
+    await new Promise<void>((resolve) => {
+      tween(clone)
+        .to(0.2, { position: localTarget }, { easing: 'cubicOut' })
+        .call(() => resolve())
+        .start();
+    });
+
+    return clone;
+  }
+
+  private async onPick(name: string, source?: Node) {
+    if (!this.buttonsRoot || !this.elementButtonPrefab || !this.flyingLayer) return;
+    if (this.fusionLocked) return;
+
+    this.fusionLocked = true;
+    try {
+      const targetNode = !this.slotA ? this.slotATarget : this.slotBTarget;
+      const clone = await this.flyElementToSlot(name, targetNode, source);
+
+      this.scheduleOnce(() => {
+        this.processSlotAssignment(name, clone)
+          .then(() => {
+            this.fusionLocked = false;
+          })
+          .catch((err) => {
+            this.fusionLocked = false;
+            throw err;
+          });
+      }, 0);
+    } catch (err) {
+      this.fusionLocked = false;
+      throw err;
+    }
+  }
+
+  private async processSlotAssignment(name: string, clone: Node) {
+    console.log('[QuickPlay] processSlotAssignment', { name, slotA: this.slotA, slotB: this.slotB });
     if (!this.slotA) {
       this.slotA = name;
-    } else if (!this.slotB) {
-      this.slotB = name;
+      this.slotNodeA = clone;
     } else {
-      // 保留 B 作为上一次组合的后续，旧的 A 退回、最新选择成为 B
-      this.slotA = this.slotB;
       this.slotB = name;
+      this.slotNodeB = clone;
     }
 
-    this.refreshSlots();
-
     if (this.slotA && this.slotB) {
-      const r = this.core.tryCombine(this.slotA, this.slotB);
+      this.magicCircle?.enterFusionFocus();
+      await this.playCombineAnimation();
+      this.magicCircle?.exitFusionFocus();
+      const a = this.slotA;
+      const b = this.slotB;
+      this.cleanupSlotNodes();
+      this.slotA = null;
+      this.slotB = null;
+      const r = this.core.tryCombine(a, b);
       if (!r.ok) {
-        this.showPopup('🤔 没有反应', `${this.slotA} + ${this.slotB}\n换个组合试试～`);
+        this.showPopup('?? 没有反应', `${a} + ${b}\n换个组合试试～`);
       } else {
         const title = r.isNew ? '✨ 新发现' : '✨ 你以前做过';
-        const desc = `${this.slotA} + ${this.slotB}\n→ ${r.result}\n\n${r.reason}`;
+        const desc = `${a} + ${b}\n→ ${r.result}\n\n${r.reason}`;
         this.showPopup(title, desc);
-
         if (r.isNew) {
           this.refreshButtons();
         }
@@ -191,11 +262,93 @@ export class QuickPlayController extends Component {
           }
         }
       }
-
-      this.slotA = null;
-      this.slotB = null;
-      this.refreshSlots();
     }
+  }
+
+  private cleanupSlotNodes() {
+    if (this.slotNodeA) {
+      console.log('[QuickPlay] destroying slotNodeA', this.slotNodeA.name);
+      this.slotNodeA.destroy();
+      this.slotNodeA = null;
+    }
+    if (this.slotNodeB) {
+      console.log('[QuickPlay] destroying slotNodeB', this.slotNodeB.name);
+      this.slotNodeB.destroy();
+      this.slotNodeB = null;
+    }
+  }
+
+  private async playCombineAnimation() {
+    if (!this.flyingLayer) return;
+    const clones = [this.slotNodeA, this.slotNodeB].filter((node): node is Node => !!node);
+    if (!clones.length) return;
+    console.log('[QuickPlay] playCombineAnimation', 'clones', clones.length, clones.map((n) => n.name).join(','));
+
+    const duration = 0.28;
+    const centerWorld = new Vec3();
+    if (this.circle) {
+      this.circle.getWorldPosition(centerWorld);
+    } else if (this.slotATarget) {
+      this.slotATarget.getWorldPosition(centerWorld);
+    } else if (this.slotBTarget) {
+      this.slotBTarget.getWorldPosition(centerWorld);
+    } else {
+      this.flyingLayer.getWorldPosition(centerWorld);
+    }
+
+    const flyingTransform = this.flyingLayer.getComponent(UITransform);
+    const centerLocal = flyingTransform
+      ? flyingTransform.convertToNodeSpaceAR(centerWorld)
+      : centerWorld;
+
+    await Promise.all(
+      clones.map((node) => {
+        return new Promise<void>((resolve) => {
+          const startWorld = node.getWorldPosition(new Vec3());
+          const startLocal = flyingTransform
+            ? flyingTransform.convertToNodeSpaceAR(startWorld)
+            : startWorld;
+          const offsetX = startLocal.x - centerLocal.x;
+          const offsetY = startLocal.y - centerLocal.y;
+          let angle = Math.atan2(offsetY, offsetX);
+          const startRadius = Math.max(16, Math.sqrt(offsetX * offsetX + offsetY * offsetY));
+          const rotationSpeed = Math.PI * 2 * 3;
+          const combineNode = node as Node & { __combineT?: number };
+          combineNode.__combineT = 0;
+          let lastT = 0;
+          const action = tween(combineNode)
+            .to(duration, { __combineT: 1 }, {
+              easing: 'cubicInOut',
+              onUpdate: () => {
+                const currentT = combineNode.__combineT ?? 0;
+                const dt = currentT - lastT;
+                lastT = currentT;
+                angle += rotationSpeed * dt;
+                const radius = Math.max(6, startRadius * (1 - currentT));
+                const localPos = new Vec3(centerLocal.x + Math.cos(angle) * radius, centerLocal.y + Math.sin(angle) * radius, centerLocal.z);
+                node.setPosition(localPos);
+              }
+            })
+            .call(() => {
+              console.log('[QuickPlay] combine tween done', node.name);
+              resolve();
+            });
+          console.log('[QuickPlay] starting combine tween', node.name);
+          this.activeCombineTweens.push(action);
+          action.start();
+        });
+      })
+    );
+  }
+
+  private stopActiveCombineTweens() {
+    console.log('[QuickPlay] stopping combine tweens', this.activeCombineTweens.length);
+    this.activeCombineTweens.forEach((tw) => tw.stop());
+    this.activeCombineTweens.length = 0;
+  }
+
+  onDestroy() {
+    this.stopActiveCombineTweens();
   }
 
   private showPopup(title: string, desc: string) {

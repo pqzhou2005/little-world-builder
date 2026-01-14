@@ -1,8 +1,25 @@
-import { _decorator, Component, Graphics, Color, UITransform } from 'cc';
+import {
+    _decorator,
+    Component,
+    Graphics,
+    Color,
+    UITransform,
+    tween,
+    Vec3,
+    Node,
+    UIOpacity,
+    Tween,
+} from 'cc';
 const { ccclass } = _decorator;
 
 @ccclass('MagicCircle')
 export class MagicCircle extends Component {
+    private rotationTween: Tween<Node> | null = null;
+    private rotationDirection = 1;
+    private rotationLoopActive = false;
+    private opacityComponent: UIOpacity | null = null;
+    private focusScaleTween: Tween<Node> | null = null;
+    private focusOpacityTween: Tween<UIOpacity> | null = null;
 
     start () {
         const ui = this.node.getComponent(UITransform)!;
@@ -37,6 +54,10 @@ export class MagicCircle extends Component {
 
         g.stroke();
         g.fill();
+        this.node.angle = 0;
+        this.node.scale = new Vec3(0.9, 0.9, 1);
+        this.ensureOpacityComponent();
+        this.startRotationLoop();
     }
 
     // ===== 基础绘制 =====
@@ -111,5 +132,72 @@ export class MagicCircle extends Component {
             g.lineTo(x2, y2);
         }
         g.stroke();
+    }
+
+    private ensureOpacityComponent() {
+        if (!this.opacityComponent) {
+            this.opacityComponent = this.node.getComponent(UIOpacity);
+            if (!this.opacityComponent) {
+                this.opacityComponent = this.node.addComponent(UIOpacity);
+            }
+        }
+    }
+
+    private startRotationLoop() {
+        if (this.rotationLoopActive) return;
+        this.rotationLoopActive = true;
+        this.scheduleNextRotation();
+    }
+
+    private scheduleNextRotation() {
+        if (!this.rotationLoopActive) return;
+        const targetAngle = this.rotationDirection > 0 ? 18 : -18;
+        this.rotationTween?.stop();
+        this.rotationTween = tween(this.node)
+            .to(14, { angle: targetAngle }, { easing: 'sineInOut' })
+            .call(() => {
+                if (!this.rotationLoopActive) return;
+                this.rotationDirection *= -1;
+                this.scheduleNextRotation();
+            });
+        this.rotationTween.start();
+    }
+
+    private stopRotationLoop() {
+        this.rotationLoopActive = false;
+        this.rotationTween?.stop();
+        this.rotationTween = null;
+    }
+
+    onDestroy() {
+        this.stopRotationLoop();
+        this.focusScaleTween?.stop();
+        this.focusOpacityTween?.stop();
+    }
+
+    enterFusionFocus() {
+        this.focusScaleTween?.stop();
+        this.focusOpacityTween?.stop();
+        this.focusScaleTween = tween(this.node)
+            .to(0.25, { scale: new Vec3(0.85, 0.85, 1) }, { easing: 'sineOut' });
+        this.focusScaleTween.start();
+        if (this.opacityComponent) {
+            this.focusOpacityTween = tween(this.opacityComponent)
+                .to(0.25, { opacity: 0.7 * 255 }, { easing: 'sineOut' });
+            this.focusOpacityTween.start();
+        }
+    }
+
+    exitFusionFocus() {
+        this.focusScaleTween?.stop();
+        this.focusOpacityTween?.stop();
+        this.focusScaleTween = tween(this.node)
+            .to(0.3, { scale: new Vec3(0.9, 0.9, 1) }, { easing: 'sineInOut' });
+        this.focusScaleTween.start();
+        if (this.opacityComponent) {
+            this.focusOpacityTween = tween(this.opacityComponent)
+                .to(0.3, { opacity: 255 }, { easing: 'sineInOut' });
+            this.focusOpacityTween.start();
+        }
     }
 }
