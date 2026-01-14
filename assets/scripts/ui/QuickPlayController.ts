@@ -15,11 +15,6 @@ export class QuickPlayController extends Component {
   @property(Prefab)
   elementButtonPrefab: Prefab | null = null;
 
-  @property(Label)
-  slotALabel: Label | null = null;
-
-  @property(Label)
-  slotBLabel: Label | null = null;
 
   @property(Label)
   goalLabel: Label | null = null;
@@ -47,9 +42,7 @@ export class QuickPlayController extends Component {
   start() {
     if (
       !this.buttonsRoot ||
-      !this.elementButtonPrefab ||
-      !this.slotALabel ||
-      !this.slotBLabel
+      !this.elementButtonPrefab 
     ) {
       console.warn('QuickPlayController: missing required refs');
       return;
@@ -109,14 +102,6 @@ export class QuickPlayController extends Component {
       GameLaunchParams.chapterId
     );
 
-    this.slotALabel!.node.on(Node.EventType.TOUCH_END, () => {
-      this.slotA = null;
-      this.refreshSlots();
-    }, this);
-    this.slotBLabel!.node.on(Node.EventType.TOUCH_END, () => {
-      this.slotB = null;
-      this.refreshSlots();
-    }, this);
   }
 
   private refreshGoal() {
@@ -126,12 +111,7 @@ export class QuickPlayController extends Component {
   }
 
   private refreshSlots() {
-    if (this.slotALabel) {
-      this.slotALabel.string = this.slotA ? `A = ${this.slotA}` : 'A = （空）';
-    }
-    if (this.slotBLabel) {
-      this.slotBLabel.string = this.slotB ? `B = ${this.slotB}` : 'B = （空）';
-    }
+    
   }
 
   private refreshButtons() {
@@ -291,7 +271,6 @@ export class QuickPlayController extends Component {
     UIDebug.dumpNode(stage, 'ScrollView/Viewport', nodes.viewport);
     UIDebug.dumpNode(stage, 'ButtonsRoot', nodes.scrollContent);
     UIDebug.checkSamePosition(stage, 'Buttons', nodes.buttonsRoot?.children ?? []);
-    UIDebug.checkSamePosition(stage, 'Slots', [this.slotALabel?.node ?? null, this.slotBLabel?.node ?? null]);
     UIDebug.checkScrollContentSize(stage, 'ScrollView Content', nodes.scrollContent);
   }
 
