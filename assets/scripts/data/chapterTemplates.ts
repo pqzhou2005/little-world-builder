@@ -151,8 +151,8 @@ export const ELEMENT_ICONS: Record<string, string> = {
   };
 
 export const ELEMENT_ASSETS: Record<string, ElementAsset> = {
-  火: { slug: 'element-fire', icon: 'assets/elements/element-fire.png' },
-  水: { slug: 'element-water', icon: 'assets/elements/element-water.jpg' },
+  火: { slug: 'element-fire', icon: 'assets/emoji/1f525.png' },
+  水: { slug: '1f4a7', icon: 'assets/emoji/1f4a7.png' },
   土: { slug: 'element-earth', icon: 'assets/elements/element-earth.jpg' },
   空气: { slug: 'element-air', icon: 'assets/elements/element-air.png' },
   石头: { slug: 'element-stone', icon: 'assets/elements/element-stone.png' },

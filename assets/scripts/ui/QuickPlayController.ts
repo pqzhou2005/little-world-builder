@@ -1,6 +1,6 @@
 import { _decorator, Component, Node, Label, Button, Prefab, instantiate, director, UITransform, Sprite, Mask, Vec3, tween, Tween, find } from 'cc';
 import { GameCore } from '../core/GameCore';
-import { chapterTemplates, ELEMENT_ICONS, ELEMENT_ASSETS } from '../data/chapterTemplates';
+import { chapterTemplates, ELEMENT_ICONS } from '../data/chapterTemplates';
 import { GameLaunchParams, LaunchMode } from '../core/GameLaunchParams';
 import { ElementButton } from './ElementButton';
 import { UIDebug } from './UIDebug';
@@ -137,27 +137,14 @@ export class QuickPlayController extends Component {
       node.setParent(this.buttonsRoot);
 
       const elementBtn = node.getComponent(ElementButton);
-      const meta = ELEMENT_ASSETS[name];
       if (elementBtn) {
-        const slug = meta?.slug ?? 'panel';
-        elementBtn.setup(name, slug);
+        elementBtn.setup(name, ELEMENT_ICONS[name]);
       } else {
         const label = node.getComponentInChildren(Label);
         if (label) label.string = this.getButtonLabel(name);
       }
 
-      const hitArea = node.getChildByName('HitArea');
-      if (!hitArea) {
-        console.warn('[ElementButton] missing HitArea');
-        continue;
-      }
-
-      const btn = hitArea.getComponent(Button);
-      if (btn) {
-        btn.node.on(Button.EventType.CLICK, () => this.onPick(name, hitArea), this);
-      } else {
-        hitArea.on(Node.EventType.TOUCH_END, () => this.onPick(name, hitArea), this);
-      }
+      node.on(Node.EventType.TOUCH_END, () => this.onPick(name, node), this);
     }
   }
 
@@ -169,9 +156,7 @@ export class QuickPlayController extends Component {
     clone.setParent(this.flyingLayer);
     clone.setScale(1, 1, 1);
 
-    const meta = ELEMENT_ASSETS[name];
-    const slug = meta?.slug ?? 'panel';
-    clone.getComponent(ElementButton)?.setup(name, slug);
+    clone.getComponent(ElementButton)?.setup(name, ELEMENT_ICONS[name]);
 
     const reference = source?.parent ?? source ?? this.buttonsRoot ?? this.flyingLayer;
     const startWorld = reference?.getWorldPosition(new Vec3()) ?? new Vec3();
@@ -430,6 +415,7 @@ export class QuickPlayController extends Component {
   private collectHierarchy() {
     const scene = this.node.scene;
     const canvas = scene?.getChildByName('Canvas') ?? this.node.parent?.getChildByName('Canvas') ?? null;
+
     const safeRoot =
       canvas?.getChildByName('SafeRoot') ??
       (this.node.name === 'SafeRoot' ? this.node : this.node.getChildByName('SafeRoot'));
