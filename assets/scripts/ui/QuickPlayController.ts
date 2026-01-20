@@ -3,7 +3,6 @@ import { GameCore } from '../core/GameCore';
 import { chapterTemplates, ELEMENT_ICONS } from '../data/chapterTemplates';
 import { GameLaunchParams, LaunchMode } from '../core/GameLaunchParams';
 import { ElementButton } from './ElementButton';
-import { UIDebug } from './UIDebug';
 import { MagicCircle } from './Circle';
 
 const { ccclass, property } = _decorator;
@@ -42,6 +41,9 @@ export class QuickPlayController extends Component {
 
   @property(Button)
   popupCloseBtn: Button | null = null;
+
+  @property(Label)
+  topLabel: Label | null = null;
 
   private fusionLocked = false;
   private slotNodeA: Node | null = null;
@@ -93,6 +95,10 @@ export class QuickPlayController extends Component {
       chapterTemplates[GameLaunchParams.chapterId],
       GameLaunchParams.chapterId
     );
+
+    if (this.topLabel) {
+      this.topLabel.string = this.core.template.chapterIntro.title;
+    }
 
     switch (GameLaunchParams.mode) {
       case LaunchMode.Continue:
@@ -146,7 +152,28 @@ export class QuickPlayController extends Component {
 
       node.on(Node.EventType.TOUCH_END, () => this.onPick(name, node), this);
     }
+
+    this.scheduleOnce(() => {
+      this.syncScrollContentSize();
+    }, 0);
   }
+
+  private syncScrollContentSize() {
+    if (!this.buttonsRoot) return;
+    const content = this.buttonsRoot.parent;
+    const view = content?.parent;
+    const contentTransform = content?.getComponent(UITransform);
+    const viewTransform = view?.getComponent(UITransform);
+    const rootTransform = this.buttonsRoot.getComponent(UITransform);
+    if (!contentTransform || !rootTransform) return;
+
+    const minHeight = viewTransform?.contentSize.height ?? 0;
+    const targetHeight = Math.max(rootTransform.contentSize.height, minHeight);
+    const size = contentTransform.contentSize;
+    contentTransform.setContentSize(size.width, targetHeight);
+  }
+
+
 
   private async flyElementToSlot(name: string, targetNode: Node | null, source?: Node): Promise<Node> {
     if (!this.elementButtonPrefab || !this.flyingLayer) {
@@ -401,15 +428,6 @@ export class QuickPlayController extends Component {
 
   private logUIState(stage: string) {
     const nodes = this.collectHierarchy();
-    UIDebug.dumpNode(stage, 'Canvas', nodes.canvas);
-    UIDebug.dumpNode(stage, 'SafeRoot', nodes.safeRoot);
-    UIDebug.dumpNode(stage, 'ButtonsPannel', nodes.buttonsPannel);
-    UIDebug.dumpNode(stage, 'ButtonsPannel/Bg', nodes.bg);
-    UIDebug.dumpNode(stage, 'ScrollView', nodes.scrollView);
-    UIDebug.dumpNode(stage, 'ScrollView/Viewport', nodes.viewport);
-    UIDebug.dumpNode(stage, 'ButtonsRoot', nodes.scrollContent);
-    UIDebug.checkSamePosition(stage, 'Buttons', nodes.buttonsRoot?.children ?? []);
-    UIDebug.checkScrollContentSize(stage, 'ScrollView Content', nodes.scrollContent);
   }
 
   private collectHierarchy() {
@@ -421,10 +439,10 @@ export class QuickPlayController extends Component {
       (this.node.name === 'SafeRoot' ? this.node : this.node.getChildByName('SafeRoot'));
     const buttonsPannel = safeRoot?.getChildByName('ButtonsPannel') ?? null;
     const bg = buttonsPannel?.getChildByName('Bg') ?? null;
-    const scrollView = buttonsPannel?.getChildByName('ScrollView') ?? null;
-    const viewport = scrollView?.getChildByName('Viewport') ?? null;
+    const scrollView = bg?.getChildByName('ScrollView') ?? null;
+    const view = scrollView?.getChildByName('view') ?? null;
     const scrollContent =
-      viewport?.getChildByName('ButtonsRoot') ??
+      view?.getChildByName('ButtonsRoot') ??
       scrollView?.getChildByName('ButtonsRoot') ??
       this.buttonsRoot ??
       null;
@@ -435,7 +453,7 @@ export class QuickPlayController extends Component {
       buttonsPannel,
       bg,
       scrollView,
-      viewport,
+      view,
       scrollContent,
       buttonsRoot
     };
