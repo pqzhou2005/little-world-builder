@@ -928,7 +928,7 @@
     },
     "_type": 1,
     "_fillType": 0,
-    "_sizeMode": 1,
+    "_sizeMode": 0,
     "_fillCenter": {
       "__type__": "cc.Vec2",
       "x": 0,
@@ -965,7 +965,7 @@
     "_prefab": null,
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 143.017578125,
+      "x": 147.017578125,
       "y": 0,
       "z": 0
     },
@@ -1005,7 +1005,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 266.03515625,
-      "height": 50.4
+      "height": 35.28
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1029,18 +1029,18 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 68,
-      "g": 34,
-      "b": 28,
+      "r": 91,
+      "g": 74,
+      "b": 47,
       "a": 255
     },
     "_string": "🌼 小小造世界",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 40,
-    "_fontSize": 40,
+    "_actualFontSize": 24,
+    "_fontSize": 24,
     "_fontFamily": "Arial",
-    "_lineHeight": 40,
+    "_lineHeight": 28,
     "_overflow": 3,
     "_enableWrapText": true,
     "_font": null,
@@ -1088,7 +1088,7 @@
     "__prefab": null,
     "_alignFlags": 8,
     "_target": null,
-    "_left": 60,
+    "_left": 64,
     "_right": 0,
     "_top": 0,
     "_bottom": 0,
@@ -5198,9 +5198,9 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
+      "r": 235,
+      "g": 235,
+      "b": 235,
       "a": 255
     },
     "_spriteFrame": {
