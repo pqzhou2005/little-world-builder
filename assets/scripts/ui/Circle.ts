@@ -14,68 +14,87 @@ const { ccclass } = _decorator;
 
 @ccclass('MagicCircle')
 export class MagicCircle extends Component {
-    private rotationTween: Tween<Node> | null = null;
-    private rotationDirection = 1;
-    private rotationLoopActive = false;
+    private root!: Node;
+    private staticLayer!: Node;
+    private dynamicLayer!: Node;
+
     private opacityComponent: UIOpacity | null = null;
     private focusScaleTween: Tween<Node> | null = null;
     private focusOpacityTween: Tween<UIOpacity> | null = null;
 
     start () {
-        const ui = this.node.getComponent(UITransform)!;
+        this.root = this.node;
+        const ui = this.root.getComponent(UITransform)!;
         ui.setContentSize(900, 900);
+        this.root.scale = new Vec3(0.92, 0.92, 1);
 
-        const g = this.node.addComponent(Graphics);
+        // ===== 静态层（法则 / 坐标）=====
+        this.staticLayer = new Node('StaticLayer');
+        this.staticLayer.setParent(this.root);
+        this.staticLayer.addComponent(UITransform).setContentSize(900, 900);
+        this.drawStatic(this.staticLayer.addComponent(Graphics));
 
-        // 颜色：深一点，别用纯黑
-        const main = new Color(30, 30, 30, 255);
+        // ===== 动态层（变化，但克制）=====
+        this.dynamicLayer = new Node('DynamicLayer');
+        this.dynamicLayer.setParent(this.root);
+        this.dynamicLayer.addComponent(UITransform).setContentSize(900, 900);
+        this.drawDynamic(this.dynamicLayer.addComponent(Graphics));
 
-        // ===== 外圈（法阵边界）=====
-        this.circle(g, 320, 5, 0.9, main);
-        this.circle(g, 260, 4, 0.75, main);
-
-        // ===== 星形结构（法阵核心识别）=====
-        this.star(g, 210, 4, 0.85, main);
-
-        // ===== 十字定位（符号感）=====
-        this.line(g, -260, 0, 260, 0, 3, 0.7, main);
-        this.line(g, 0, -260, 0, 260, 3, 0.7, main);
-
-        // ===== 内圈 =====
-        this.circle(g, 120, 4, 0.85, main);
-        this.circle(g, 70, 3, 0.7, main);
-
-        // ===== 中心符文 =====
-        this.diamond(g, 28, 4, 0.9, main);
-        this.fill(g, 8, 1.0, main);
-
-        // ===== 简化刻度（只保留“仪式感”）=====
-        this.ticks(g);
-
-        g.stroke();
-        g.fill();
-        this.node.angle = 0;
-        this.node.scale = new Vec3(0.9, 0.9, 1);
+        this.startDynamicRotation();
         this.ensureOpacityComponent();
-        this.startRotationLoop();
     }
 
-    // ===== 基础绘制 =====
+    // =================================================
+    // 静态结构（神话 / 权威）
+    // =================================================
+    private drawStatic(g: Graphics) {
+        const law  = new Color(78, 78, 78, 255); // 外圈：法则
+        const axis = new Color(68, 68, 68, 255); // 十字：坐标
+        const base = new Color(40, 40, 40, 255); // 结构
 
-    circle(g: Graphics, r: number, w: number, a: number, c: Color) {
+        // 外圈（最亮，裁决感）
+        this.circle(g, 320, 6, 1.0, law);
+
+        // 十字坐标（仅次于外圈）
+        this.line(g, -260, 0, 260, 0, 4, 0.95, axis);
+        this.line(g, 0, -260, 0, 260, 4, 0.95, axis);
+
+        // 主内圈
+        this.circle(g, 260, 4, 0.72, base);
+        this.circle(g, 120, 3, 0.68, base);
+    }
+
+    // =================================================
+    // 动态结构（服从法则）
+    // =================================================
+    private drawDynamic(g: Graphics) {
+        const mid    = new Color(45, 45, 45, 255);
+        const detail = new Color(30, 30, 30, 255);
+
+        this.star(g, 210, 3, 0.6, mid);
+        this.circle(g, 70, 2, 0.4, detail);
+        this.diamond(g, 28, 3, 0.5, detail);
+        this.fill(g, 8, 0.35, detail);
+        this.ticks(g);
+    }
+
+    // =================================================
+    // 基础绘制
+    // =================================================
+    private circle(g: Graphics, r: number, w: number, a: number, c: Color) {
         g.lineWidth = w;
         g.strokeColor = new Color(c.r, c.g, c.b, a * 255);
         g.circle(0, 0, r);
         g.stroke();
     }
 
-    fill(g: Graphics, r: number, a: number, c: Color) {
+    private fill(g: Graphics, r: number, a: number, c: Color) {
         g.fillColor = new Color(c.r, c.g, c.b, a * 255);
         g.circle(0, 0, r);
         g.fill();
     }
 
-    line(
+    private line(
         g: Graphics,
         x1: number, y1: number,
         x2: number, y2: number,
@@ -88,18 +107,16 @@ export class MagicCircle extends Component {
         g.stroke();
     }
 
-    star(g: Graphics, r: number, w: number, a: number, c: Color) {
+    private star(g: Graphics, r: number, w: number, a: number, c: Color) {
         g.lineWidth = w;
         g.strokeColor = new Color(c.r, c.g, c.b, a * 255);
 
-        // 上三角
         g.moveTo(0, -r);
         g.lineTo(182, 105);
         g.lineTo(-182, 105);
         g.close();
         g.stroke();
 
-        // 下三角
         g.moveTo(0, r);
         g.lineTo(182, -105);
         g.lineTo(-182, -105);
@@ -107,7 +124,7 @@ export class MagicCircle extends Component {
         g.stroke();
     }
 
-    diamond(g: Graphics, r: number, w: number, a: number, c: Color) {
+    private diamond(g: Graphics, r: number, w: number, a: number, c: Color) {
         g.lineWidth = w;
         g.strokeColor = new Color(c.r, c.g, c.b, a * 255);
         g.moveTo(0, -r);
@@ -118,86 +135,65 @@ export class MagicCircle extends Component {
         g.stroke();
     }
 
-    ticks(g: Graphics) {
-        g.lineWidth = 3;
-        g.strokeColor = new Color(30, 30, 30, 0.35 * 255);
-
+    private ticks(g: Graphics) {
+        g.lineWidth = 2;
+        g.strokeColor = new Color(25, 25, 25, 0.14 * 255);
         for (let i = 0; i < 12; i++) {
             const a = i * Math.PI / 6;
-            const x1 = Math.sin(a) * 320;
-            const y1 = -Math.cos(a) * 320;
-            const x2 = Math.sin(a) * 300;
-            const y2 = -Math.cos(a) * 300;
-            g.moveTo(x1, y1);
-            g.lineTo(x2, y2);
+            g.moveTo(Math.sin(a) * 320, -Math.cos(a) * 320);
+            g.lineTo(Math.sin(a) * 300, -Math.cos(a) * 300);
         }
         g.stroke();
     }
 
+    // =================================================
+    // 动态层旋转（更慢 = 权威）
+    // =================================================
+    private startDynamicRotation() {
+        tween(this.dynamicLayer)
+            .by(60, { angle: 360 }, { easing: 'linear' })
+            .repeatForever()
+            .start();
+    }
+
+    // =================================================
+    // 聚焦状态（保留）
+    // =================================================
     private ensureOpacityComponent() {
         if (!this.opacityComponent) {
-            this.opacityComponent = this.node.getComponent(UIOpacity);
-            if (!this.opacityComponent) {
-                this.opacityComponent = this.node.addComponent(UIOpacity);
-            }
+            this.opacityComponent =
+                this.root.getComponent(UIOpacity) ||
+                this.root.addComponent(UIOpacity);
         }
-    }
-
-    private startRotationLoop() {
-        if (this.rotationLoopActive) return;
-        this.rotationLoopActive = true;
-        this.scheduleNextRotation();
-    }
-
-    private scheduleNextRotation() {
-        if (!this.rotationLoopActive) return;
-        const targetAngle = this.rotationDirection > 0 ? 18 : -18;
-        this.rotationTween?.stop();
-        this.rotationTween = tween(this.node)
-            .to(14, { angle: targetAngle }, { easing: 'sineInOut' })
-            .call(() => {
-                if (!this.rotationLoopActive) return;
-                this.rotationDirection *= -1;
-                this.scheduleNextRotation();
-            });
-        this.rotationTween.start();
-    }
-
-    private stopRotationLoop() {
-        this.rotationLoopActive = false;
-        this.rotationTween?.stop();
-        this.rotationTween = null;
-    }
-
-    onDestroy() {
-        this.stopRotationLoop();
-        this.focusScaleTween?.stop();
-        this.focusOpacityTween?.stop();
     }
 
     enterFusionFocus() {
         this.focusScaleTween?.stop();
         this.focusOpacityTween?.stop();
-        this.focusScaleTween = tween(this.node)
-            .to(0.25, { scale: new Vec3(0.85, 0.85, 1) }, { easing: 'sineOut' });
-        this.focusScaleTween.start();
+
+        this.focusScaleTween = tween(this.root)
+            .to(0.25, { scale: new Vec3(0.86, 0.86, 1) }, { easing: 'sineOut' })
+            .start();
+
         if (this.opacityComponent) {
             this.focusOpacityTween = tween(this.opacityComponent)
-                .to(0.25, { opacity: 0.7 * 255 }, { easing: 'sineOut' });
-            this.focusOpacityTween.start();
+                .to(0.25, { opacity: 210 }, { easing: 'sineOut' })
+                .start();
         }
     }
 
     exitFusionFocus() {
         this.focusScaleTween?.stop();
         this.focusOpacityTween?.stop();
-        this.focusScaleTween = tween(this.node)
-            .to(0.3, { scale: new Vec3(0.9, 0.9, 1) }, { easing: 'sineInOut' });
-        this.focusScaleTween.start();
+
+        this.focusScaleTween = tween(this.root)
+            .to(0.3, { scale: new Vec3(0.92, 0.92, 1) }, { easing: 'sineInOut' })
+            .start();
+
         if (this.opacityComponent) {
             this.focusOpacityTween = tween(this.opacityComponent)
-                .to(0.3, { opacity: 255 }, { easing: 'sineInOut' });
-            this.focusOpacityTween.start();
+                .to(0.3, { opacity: 255 }, { easing: 'sineInOut' })
+                .start();
         }
     }
 }
