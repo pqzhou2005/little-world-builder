@@ -2,9 +2,10 @@ import { _decorator, Component, Node, Label, Prefab, instantiate, director, UITr
 import { GameCore } from '../core/GameCore';
 import { chapterTemplates, ELEMENT_ICONS } from '../data/chapterTemplates';
 import { GameLaunchParams, LaunchMode } from '../core/GameLaunchParams';
-import { CommonPopup } from './CommonPopup';
-import { PopupService } from './PopupService';
-import { ElementButton } from './ElementButton';
+import { CommonPopup } from './framework/CommonPopup';
+import { PopupService } from './framework/PopupService';
+import { ToastService } from './framework/ToastService';
+import { ElementButton } from './widgets/ElementButton';
 import { MagicCircle } from './Circle';
 
 const { ccclass, property } = _decorator;
@@ -243,19 +244,23 @@ export class QuickPlayController extends Component {
     }
 
     if (this.slotA && this.slotB) {
-      this.magicCircle?.enterFusionFocus();
-      await this.playCombineAnimation();
-      this.magicCircle?.exitFusionFocus();
       const a = this.slotA;
       const b = this.slotB;
-      this.cleanupSlotNodes();
-      this.slotA = null;
-      this.slotB = null;
       const r = this.core.tryCombine(a, b);
       if (!r.ok) {
-        this.showPopup('?? 没有反应', `${a} + ${b}\n换个组合试试～`);
+        await this.playFailAnimation();
+        this.cleanupSlotNodes();
+        this.slotA = null;
+        this.slotB = null;
+        this.showFailureToast(a, b);
       } else {
         const title = r.isNew ? '✨ 新发现' : '✨ 你以前做过';
+        this.magicCircle?.enterFusionFocus();
+        await this.playCombineAnimation();
+        this.magicCircle?.exitFusionFocus();
+        this.cleanupSlotNodes();
+        this.slotA = null;
+        this.slotB = null;
         if (this.popupService) {
           this.popupService.showNewElement({
             name: r.result,
@@ -361,10 +366,52 @@ export class QuickPlayController extends Component {
     );
   }
 
+  private async playFailAnimation() {
+    const clones = [this.slotNodeA, this.slotNodeB].filter((node): node is Node => !!node);
+    if (!clones.length) return;
+    const offsets = [6, -6, 4, -4, 0];
+    const step = 0.04;
+
+    await Promise.all(
+      clones.map((node) => {
+        return new Promise<void>((resolve) => {
+          const base = node.position.clone();
+          const action = tween(node);
+          offsets.forEach((dx) => {
+            action.to(step, { position: new Vec3(base.x + dx, base.y, base.z) }, { easing: 'sineInOut' });
+          });
+          action.call(() => resolve()).start();
+        });
+      })
+    );
+  }
+
   private stopActiveCombineTweens() {
     console.log('[QuickPlay] stopping combine tweens', this.activeCombineTweens.length);
     this.activeCombineTweens.forEach((tw) => tw.stop());
     this.activeCombineTweens.length = 0;
+  }
+
+  private showFailureToast(a: string, b: string) {
+    const feedback = this.findComboFeedbackText(a, b);
+    const fallbackList = this.core.template.failureToasts ?? [];
+    const fallback = fallbackList.length
+      ? fallbackList[Math.floor(Math.random() * fallbackList.length)]
+      : '没有反应，再试试其他组合吧';
+    ToastService.show(feedback ?? fallback);
+  }
+
+  private findComboFeedbackText(a: string, b: string) {
+    const list = this.core.template.comboFeedback ?? [];
+    for (const item of list) {
+      const ingredients = item.ingredients ?? [];
+      if (ingredients.length < 2) continue;
+      const [i1, i2] = ingredients;
+      if ((i1 === a && i2 === b) || (i1 === b && i2 === a)) {
+        return item.text;
+      }
+    }
+    return null;
   }
 
   onDestroy() {

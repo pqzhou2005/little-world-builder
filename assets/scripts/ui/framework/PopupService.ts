@@ -1,7 +1,13 @@
+/**
+ * ⚠️ 架构冻结文件
+ * - 该文件是 UI 基础设施的一部分
+ * - 不允许修改职责、结构或对外 API
+ * - 只允许修 bug 或做视觉相关调整
+ */
 import { Prefab } from 'cc';
 import { CommonPopup } from './CommonPopup';
-import { TextContent } from './TextContent';
-import { ElementContent } from './ElementContent';
+import { TextContent } from '../content/TextContent';
+import { ElementContent } from '../content/NewElementContent';
 
 type NewElementData = {
   name: string;

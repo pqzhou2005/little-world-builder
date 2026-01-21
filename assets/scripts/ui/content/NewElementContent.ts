@@ -1,5 +1,5 @@
 import { _decorator, Component, Label } from 'cc';
-import { ElementButton } from './ElementButton';
+import { ElementButton } from '../widgets/ElementButton';
 
 const { ccclass, property } = _decorator;
 
