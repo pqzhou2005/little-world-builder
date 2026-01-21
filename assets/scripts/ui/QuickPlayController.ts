@@ -6,6 +6,7 @@ import { CommonPopup } from './framework/CommonPopup';
 import { PopupService } from './framework/PopupService';
 import { ToastService } from './framework/ToastService';
 import { ElementButton } from './widgets/ElementButton';
+import { ElementCoreView } from './widgets/ElementCoreView';
 import { MagicCircle } from './Circle';
 
 const { ccclass, property } = _decorator;
@@ -17,6 +18,9 @@ export class QuickPlayController extends Component {
 
   @property(Prefab)
   elementButtonPrefab: Prefab | null = null;
+
+  @property(Prefab)
+  elementCorePrefab: Prefab | null = null;
 
   @property(Node)
   flyingLayer: Node | null = null;
@@ -62,7 +66,8 @@ export class QuickPlayController extends Component {
   start() {
     if (
       !this.buttonsRoot ||
-      !this.elementButtonPrefab
+      !this.elementButtonPrefab ||
+      !this.elementCorePrefab
     ) {
       console.warn('QuickPlayController: missing required refs');
       return;
@@ -179,14 +184,17 @@ export class QuickPlayController extends Component {
 
 
   private async flyElementToSlot(name: string, targetNode: Node | null, source?: Node): Promise<Node> {
-    if (!this.elementButtonPrefab || !this.flyingLayer) {
+    if (!this.elementCorePrefab || !this.flyingLayer) {
       throw new Error('flyElementToSlot missing refs');
     }
-    const clone = instantiate(this.elementButtonPrefab);
+    const clone = instantiate(this.elementCorePrefab);
     clone.setParent(this.flyingLayer);
     clone.setScale(1, 1, 1);
 
-    clone.getComponent(ElementButton)?.setup(name, ELEMENT_ICONS[name]);
+    const coreView = clone.getComponent(ElementCoreView);
+    if (coreView) {
+      coreView.setText(name);
+    }
 
     const reference = source?.parent ?? source ?? this.buttonsRoot ?? this.flyingLayer;
     const startWorld = reference?.getWorldPosition(new Vec3()) ?? new Vec3();
@@ -209,7 +217,7 @@ export class QuickPlayController extends Component {
   }
 
   private async onPick(name: string, source?: Node) {
-    if (!this.buttonsRoot || !this.elementButtonPrefab || !this.flyingLayer) return;
+    if (!this.buttonsRoot || !this.elementCorePrefab || !this.flyingLayer) return;
     if (this.fusionLocked) return;
 
     this.fusionLocked = true;
@@ -247,14 +255,14 @@ export class QuickPlayController extends Component {
       const a = this.slotA;
       const b = this.slotB;
       const r = this.core.tryCombine(a, b);
-      if (!r.ok) {
+      if (!r.ok || !r.isNew) {
         await this.playFailAnimation();
         this.cleanupSlotNodes();
         this.slotA = null;
         this.slotB = null;
         this.showFailureToast(a, b);
       } else {
-        const title = r.isNew ? '✨ 新发现' : '✨ 你以前做过';
+        const title = '? 新发现';
         this.magicCircle?.enterFusionFocus();
         await this.playCombineAnimation();
         this.magicCircle?.exitFusionFocus();
@@ -461,3 +469,4 @@ export class QuickPlayController extends Component {
     };
   }
 }
+

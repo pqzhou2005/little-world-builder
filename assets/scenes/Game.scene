@@ -303,6 +303,10 @@
       "__uuid__": "203fd622-c032-4905-a280-f1abf522ecfe",
       "__expectedType__": "cc.Prefab"
     },
+    "elementCorePrefab": {
+      "__uuid__": "6f07ffd6-0e6d-4a71-9f7c-8a8f760efe0b",
+      "__expectedType__": "cc.Prefab"
+    },
     "flyingLayer": {
       "__id__": 139
     },
@@ -3996,7 +4000,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "ef3649c6-cd85-4857-96b9-4bfef05fe619@f9941",
+      "__uuid__": "e1bf713e-a08b-480e-9f6f-99e2301afea6@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 1,
