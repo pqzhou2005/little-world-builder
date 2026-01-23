@@ -181,8 +181,6 @@ export class QuickPlayController extends Component {
     contentTransform.setContentSize(size.width, targetHeight);
   }
 
-
-
   private async flyElementToSlot(name: string, targetNode: Node | null, source?: Node): Promise<Node> {
     if (!this.elementCorePrefab || !this.flyingLayer) {
       throw new Error('flyElementToSlot missing refs');
@@ -469,4 +467,3 @@ export class QuickPlayController extends Component {
     };
   }
 }
-
