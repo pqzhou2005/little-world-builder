@@ -8,6 +8,7 @@ import { ToastService } from './framework/ToastService';
 import { ElementButton } from './widgets/ElementButton';
 import { ElementCoreView } from './widgets/ElementCoreView';
 import { MagicCircle } from './Circle';
+import { ElementTrayGridLayout } from './ElementTrayGridLayout';
 
 const { ccclass, property } = _decorator;
 
@@ -49,6 +50,9 @@ export class QuickPlayController extends Component {
   @property(Label)
   topLabel: Label | null = null;
 
+  @property(ElementTrayGridLayout)
+  trayGridLayout: ElementTrayGridLayout | null = null;
+
   private fusionLocked = false;
   private slotNodeA: Node | null = null;
   private slotNodeB: Node | null = null;
@@ -58,6 +62,8 @@ export class QuickPlayController extends Component {
   private slotB: string | null = null;
   private activeCombineTweens: Tween<any>[] = [];
   private popupService: PopupService | null = null;
+  private trayLayout = new ElementTrayGridLayout();
+  private layoutPending = false;
 
   onLoad() {
     this.logUIState('ON_LOAD');
@@ -162,23 +168,8 @@ export class QuickPlayController extends Component {
     }
 
     this.scheduleOnce(() => {
-      this.syncScrollContentSize();
+      this.trayGridLayout?.requestLayout();
     }, 0);
-  }
-
-  private syncScrollContentSize() {
-    if (!this.buttonsRoot) return;
-    const content = this.buttonsRoot.parent;
-    const view = content?.parent;
-    const contentTransform = content?.getComponent(UITransform);
-    const viewTransform = view?.getComponent(UITransform);
-    const rootTransform = this.buttonsRoot.getComponent(UITransform);
-    if (!contentTransform || !rootTransform) return;
-
-    const minHeight = viewTransform?.contentSize.height ?? 0;
-    const targetHeight = Math.max(rootTransform.contentSize.height, minHeight);
-    const size = contentTransform.contentSize;
-    contentTransform.setContentSize(size.width, targetHeight);
   }
 
   private async flyElementToSlot(name: string, targetNode: Node | null, source?: Node): Promise<Node> {
